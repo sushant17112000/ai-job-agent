@@ -139,8 +139,14 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]
             idx = score_entry.get("job_index", -1)
             if 0 <= idx < len(batch):
                 job = dict(batch[idx])
-                job["match_score"] = int(score_entry.get("match_score", 0))
-                job["match_reason"] = score_entry.get("match_reason", "")
+                # Defensively coerce match_score to int — LLM sometimes returns a string or swaps fields
+                raw_score = score_entry.get("match_score", 0)
+                try:
+                    score = int(float(str(raw_score).strip()))
+                except (ValueError, TypeError):
+                    score = 0
+                job["match_score"] = max(0, min(100, score))
+                job["match_reason"] = str(score_entry.get("match_reason", ""))
                 scored_jobs.append(job)
         if batch_num < len(batches):
             time.sleep(1)
