@@ -51,8 +51,9 @@ IIMJOBS_CITY_NAMES = {
 MIN_MATCH_SCORE = 60
 MAX_JOBS_PER_QUERY = 25
 
-# --- Gemini Model (free tier via Google AI Studio: 1,500 req/day) ---
-GEMINI_MODEL = "gemini-2.0-flash"
+# --- LLM: Groq (free tier, no credit card required) ---
+# Get your free API key at https://console.groq.com
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 # --- Stealth Browser User Agents ---
 USER_AGENTS = [
