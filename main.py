@@ -1,7 +1,5 @@
 """
 AI Job Search Agent — Orchestrator.
-
-Runs all scrapers concurrently, scores jobs with Groq (Llama 3.3), and generates an Excel report.
 """
 
 import asyncio
@@ -13,7 +11,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env for local runs (no-op in GitHub Actions)
 load_dotenv()
 
 from groq import Groq
@@ -28,9 +25,6 @@ from src.scrapers.jobstreet_scraper import JobstreetScraper
 from src.scrapers.linkedin_scraper import LinkedInScraper
 from src.scrapers.naukri_scraper import NaukriScraper
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
@@ -39,10 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Safe scraper wrapper
-# ---------------------------------------------------------------------------
-async def safe_scrape(scraper, job_titles: list[str], cities: dict) -> list[dict]:
+async def safe_scrape(scraper, job_titles: list, cities: dict) -> list:
     """Run a scraper and return [] on any unhandled exception."""
     try:
         return await scraper.scrape(job_titles, cities)
@@ -51,9 +42,6 @@ async def safe_scrape(scraper, job_titles: list[str], cities: dict) -> list[dict
         return []
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 async def main() -> None:
     # 1. Validate prerequisites
     api_key = os.environ.get("GROQ_API_KEY")
@@ -62,44 +50,37 @@ async def main() -> None:
         sys.exit(1)
 
     if not Path(CV_PATH).exists():
-        logger.error("CV not found at '%s'. Please place your resume PDF there.", CV_PATH)
+        logger.error("CV not found at '%s'. Place your resume PDF there.", CV_PATH)
         sys.exit(1)
 
-    client = Groq(api_key=api_key)
+    try:
+        client = Groq(api_key=api_key)
+    except Exception as exc:
+        logger.error("Failed to initialize Groq client: %s", exc)
+        sys.exit(1)
 
     # 2. Parse CV
     logger.info("=== Step 1: Parsing CV ===")
     try:
-        cv_text = extract_text_from_pdf(CV_PATH)
+        cv_text    = extract_text_from_pdf(CV_PATH)
         cv_profile = parse_cv_with_groq(cv_text, client)
-        logger.info(
-            "Candidate: %s | Roles: %s",
-            cv_profile.get("name"),
-            cv_profile.get("target_roles"),
-        )
+        logger.info("Candidate: %s | Roles: %s", cv_profile.get("name"), cv_profile.get("target_roles"))
     except (CVParseError, FileNotFoundError) as exc:
         logger.error("CV parsing failed: %s", exc)
         sys.exit(1)
 
-    job_titles: list[str] = cv_profile.get("target_roles", [])
-    if not job_titles:
-        logger.warning("No target roles extracted from CV — using generic 'Software Engineer'.")
+    job_titles = cv_profile.get("target_roles", [])
+    if not job_titles or not isinstance(job_titles, list):
+        logger.warning("No target roles found in CV — defaulting to 'Software Engineer'.")
         job_titles = ["Software Engineer"]
 
     # 3. Run all 4 scrapers concurrently
     logger.info("=== Step 2: Scraping job portals ===")
-    scrapers = [
-        LinkedInScraper(),
-        NaukriScraper(),
-        IIMJobsScraper(),
-        JobstreetScraper(),
-    ]
+    scrapers = [LinkedInScraper(), NaukriScraper(), IIMJobsScraper(), JobstreetScraper()]
 
-    results = await asyncio.gather(
-        *[safe_scrape(s, job_titles, CITIES) for s in scrapers]
-    )
+    results = await asyncio.gather(*[safe_scrape(s, job_titles, CITIES) for s in scrapers])
 
-    all_jobs: list[dict] = []
+    all_jobs = []
     for scraper, portal_jobs in zip(scrapers, results):
         logger.info("[%s] Returned %d jobs", scraper.portal_name, len(portal_jobs))
         all_jobs.extend(portal_jobs)
@@ -107,10 +88,10 @@ async def main() -> None:
     logger.info("Total raw jobs collected: %d", len(all_jobs))
 
     if not all_jobs:
-        logger.warning("No jobs scraped from any portal. Exiting cleanly.")
+        logger.warning("No jobs scraped from any portal today. Exiting cleanly.")
         sys.exit(0)
 
-    # 4. Score and filter jobs with Groq
+    # 4. Score with Groq
     logger.info("=== Step 3: Scoring jobs with Groq ===")
     scored_jobs = match_all_jobs(cv_profile, all_jobs, client)
     logger.info("Matched jobs after scoring: %d", len(scored_jobs))
@@ -119,7 +100,7 @@ async def main() -> None:
         logger.warning("No jobs met the minimum match score. Exiting cleanly.")
         sys.exit(0)
 
-    # 5. Generate Excel report
+    # 5. Generate Excel
     logger.info("=== Step 4: Generating Excel report ===")
     report_path = generate_excel(
         scored_jobs=scored_jobs,
@@ -129,9 +110,9 @@ async def main() -> None:
     )
     logger.info("Report saved: %s", report_path)
 
-    # 6. Commit via git (GitHub Actions only)
+    # 6. Commit (GitHub Actions only)
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        logger.info("=== Step 5: Committing report to GitHub ===")
+        logger.info("=== Step 5: Committing report ===")
         commit_excel_via_git(
             file_path=report_path,
             commit_message=f"Daily job report: {date.today().isoformat()}",

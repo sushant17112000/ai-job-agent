@@ -37,6 +37,18 @@ def extract_text_from_pdf(path: str) -> str:
     return full_text
 
 
+def _strip_markdown_fences(raw: str) -> str:
+    """Remove ```json ... ``` fences that the LLM sometimes wraps output in."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        if len(parts) > 1:
+            raw = parts[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+    return raw.strip()
+
+
 def parse_cv_with_groq(text: str, client) -> dict:
     """
     Send CV text to Groq and return a structured profile dict.
@@ -83,15 +95,21 @@ CV TEXT:
                 temperature=0.1,
                 max_tokens=1024,
             )
-            raw = response.choices[0].message.content.strip()
-
-            # Strip accidental markdown fences
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-
+            raw = _strip_markdown_fences(response.choices[0].message.content)
             profile = json.loads(raw)
+
+            # Ensure required keys exist with sensible defaults
+            profile.setdefault("name", "Unknown")
+            profile.setdefault("target_roles", [])
+            profile.setdefault("skills", [])
+            profile.setdefault("experience_years", 0)
+            profile.setdefault("education", "")
+            profile.setdefault("preferred_locations", [])
+
+            # Ensure target_roles is a list
+            if not isinstance(profile["target_roles"], list):
+                profile["target_roles"] = [str(profile["target_roles"])]
+
             logger.info("CV parsed successfully: %s", profile.get("name", "unknown"))
             return profile
 

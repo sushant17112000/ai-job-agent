@@ -21,7 +21,7 @@ def _normalize_url(url: str) -> str:
         return url
 
 
-def _deduplicate(jobs: list[dict]) -> list[dict]:
+def _deduplicate(jobs: list) -> list:
     """Remove duplicate jobs by normalized URL."""
     seen = set()
     unique = []
@@ -34,10 +34,32 @@ def _deduplicate(jobs: list[dict]) -> list[dict]:
     return unique
 
 
-def _score_batch(cv_profile: dict, batch: list[dict], client, batch_num: int) -> list[dict]:
+def _strip_markdown_fences(raw: str) -> str:
+    """Remove ```json ... ``` fences the LLM sometimes adds."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        if len(parts) > 1:
+            raw = parts[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+    return raw.strip()
+
+
+def _safe_score(raw_score) -> int:
+    """Coerce match_score to int, clamped 0-100. Returns 0 on any failure."""
+    try:
+        if isinstance(raw_score, int):
+            return max(0, min(100, raw_score))
+        return max(0, min(100, int(float(str(raw_score).strip()))))
+    except (ValueError, TypeError):
+        logger.warning("Could not coerce match_score to int: %r — defaulting to 0", raw_score)
+        return 0
+
+
+def _score_batch(cv_profile: dict, batch: list, client, batch_num: int) -> list:
     """
     Send a batch of jobs to Groq for scoring.
-
     Returns list of dicts: [{job_index, match_score, match_reason}, ...]
     """
     jobs_text = ""
@@ -73,7 +95,7 @@ JOBS TO SCORE:
 
 Return a JSON array with one object per job (in the same order):
 [
-  {{"job_index": 0, "match_score": <0-100>, "match_reason": "<1-2 sentence reason>"}},
+  {{"job_index": 0, "match_score": <integer 0-100>, "match_reason": "<1-2 sentence reason>"}},
   ...
 ]"""
 
@@ -89,20 +111,16 @@ Return a JSON array with one object per job (in the same order):
                 temperature=0.1,
                 max_tokens=2048,
             )
-            raw = response.choices[0].message.content.strip()
-
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-
+            raw = _strip_markdown_fences(response.choices[0].message.content)
             scores = json.loads(raw)
+            if not isinstance(scores, list):
+                raise ValueError(f"Expected JSON array, got {type(scores)}")
             logger.info("Batch %d: scored %d jobs", batch_num, len(scores))
             return scores
 
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, ValueError) as exc:
             logger.warning(
-                "Batch %d, attempt %d/%d: invalid JSON — %s", batch_num, attempt, max_retries, exc
+                "Batch %d, attempt %d/%d: bad JSON — %s", batch_num, attempt, max_retries, exc
             )
         except Exception as exc:
             logger.warning(
@@ -116,12 +134,10 @@ Return a JSON array with one object per job (in the same order):
     return []
 
 
-def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]:
+def match_all_jobs(cv_profile: dict, all_jobs: list, client) -> list:
     """
     Deduplicate, score, filter, and rank all scraped jobs.
-
-    Returns:
-        Sorted list of job dicts augmented with 'match_score', 'match_reason', 'rank'.
+    Returns sorted list of job dicts with 'match_score', 'match_reason', 'rank'.
     """
     if not all_jobs:
         logger.info("No jobs to score.")
@@ -136,27 +152,22 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]
     for batch_num, batch in enumerate(batches, start=1):
         scores = _score_batch(cv_profile, batch, client, batch_num)
         for score_entry in scores:
-            idx = score_entry.get("job_index", -1)
-            if 0 <= idx < len(batch):
-                job = dict(batch[idx])
-                # Defensively coerce match_score to int — LLM sometimes returns a string or swaps fields
-                raw_score = score_entry.get("match_score", 0)
-                try:
-                    score = int(float(str(raw_score).strip()))
-                except (ValueError, TypeError):
-                    score = 0
-                job["match_score"] = max(0, min(100, score))
-                job["match_reason"] = str(score_entry.get("match_reason", ""))
-                scored_jobs.append(job)
+            try:
+                idx = int(score_entry.get("job_index", -1))
+                if 0 <= idx < len(batch):
+                    job = dict(batch[idx])
+                    job["match_score"] = _safe_score(score_entry.get("match_score", 0))
+                    job["match_reason"] = str(score_entry.get("match_reason", ""))
+                    scored_jobs.append(job)
+            except Exception as exc:
+                logger.debug("Skipping malformed score entry: %s — %s", score_entry, exc)
         if batch_num < len(batches):
             time.sleep(1)
 
     filtered = [j for j in scored_jobs if j.get("match_score", 0) >= MIN_MATCH_SCORE]
     logger.info(
         "Scoring complete: %d total → %d above threshold (%d)",
-        len(scored_jobs),
-        len(filtered),
-        MIN_MATCH_SCORE,
+        len(scored_jobs), len(filtered), MIN_MATCH_SCORE,
     )
 
     filtered.sort(key=lambda j: j["match_score"], reverse=True)
