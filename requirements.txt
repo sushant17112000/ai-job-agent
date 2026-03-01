@@ -1,4 +1,4 @@
-anthropic>=0.34.0
+google-generativeai>=0.8.0
 playwright>=1.44.0
 pdfplumber>=0.11.0
 pandas>=2.2.0

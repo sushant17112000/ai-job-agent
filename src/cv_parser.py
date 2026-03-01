@@ -1,5 +1,5 @@
 """
-CV Parser — extracts text from PDF and uses Claude to produce a structured profile.
+CV Parser — extracts text from PDF and uses Gemini to produce a structured profile.
 """
 
 import json
@@ -37,9 +37,9 @@ def extract_text_from_pdf(path: str) -> str:
     return full_text
 
 
-def parse_cv_with_claude(text: str, client) -> dict:
+def parse_cv_with_gemini(text: str, model) -> dict:
     """
-    Send CV text to Claude and return a structured profile dict.
+    Send CV text to Gemini and return a structured profile dict.
 
     Returns:
         {
@@ -52,13 +52,11 @@ def parse_cv_with_claude(text: str, client) -> dict:
         }
 
     Raises:
-        CVParseError: if Claude returns invalid JSON after 2 retries.
+        CVParseError: if Gemini returns invalid JSON after 2 retries.
     """
-    from config import CLAUDE_MODEL
+    prompt = f"""Extract a structured professional profile from the following CV text.
 
-    system_prompt = "Return ONLY valid JSON, no explanation, no markdown code fences."
-
-    user_prompt = f"""Extract a structured professional profile from the following CV text.
+Return ONLY valid JSON, no explanation, no markdown code fences.
 
 Return a JSON object with exactly these keys:
 - "name": full name of the candidate (string)
@@ -74,13 +72,8 @@ CV TEXT:
     max_retries = 2
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            raw = response.content[0].text.strip()
+            response = model.generate_content(prompt)
+            raw = response.text.strip()
 
             # Strip accidental markdown fences
             if raw.startswith("```"):
@@ -94,12 +87,12 @@ CV TEXT:
 
         except json.JSONDecodeError as exc:
             logger.warning(
-                "Attempt %d/%d: Claude returned invalid JSON — %s", attempt, max_retries, exc
+                "Attempt %d/%d: Gemini returned invalid JSON — %s", attempt, max_retries, exc
             )
             if attempt < max_retries:
                 time.sleep(2**attempt)
         except Exception as exc:
-            logger.warning("Attempt %d/%d: Claude API error — %s", attempt, max_retries, exc)
+            logger.warning("Attempt %d/%d: Gemini API error — %s", attempt, max_retries, exc)
             if attempt < max_retries:
                 time.sleep(2**attempt)
 

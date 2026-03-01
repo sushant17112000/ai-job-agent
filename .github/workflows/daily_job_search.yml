@@ -37,7 +37,7 @@ jobs:
       - name: Run job search agent
         run: python main.py
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GITHUB_ACTIONS: "true"
 
       - name: Commit and push Excel report

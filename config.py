@@ -51,8 +51,8 @@ IIMJOBS_CITY_NAMES = {
 MIN_MATCH_SCORE = 60
 MAX_JOBS_PER_QUERY = 25
 
-# --- Claude Model ---
-CLAUDE_MODEL = "claude-sonnet-4-6"
+# --- Gemini Model (free tier via Google AI Studio) ---
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # --- Stealth Browser User Agents ---
 USER_AGENTS = [

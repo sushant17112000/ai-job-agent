@@ -1,7 +1,7 @@
 """
 AI Job Search Agent — Orchestrator.
 
-Runs all scrapers concurrently, scores jobs with Claude, and generates an Excel report.
+Runs all scrapers concurrently, scores jobs with Gemini, and generates an Excel report.
 """
 
 import asyncio
@@ -16,10 +16,10 @@ from dotenv import load_dotenv
 # Load .env for local runs (no-op in GitHub Actions)
 load_dotenv()
 
-import anthropic
+import google.generativeai as genai
 
-from config import CITIES, CV_PATH, REPORTS_DIR
-from src.cv_parser import CVParseError, extract_text_from_pdf, parse_cv_with_claude
+from config import CV_PATH, CITIES, GEMINI_MODEL, REPORTS_DIR
+from src.cv_parser import CVParseError, extract_text_from_pdf, parse_cv_with_gemini
 from src.excel_generator import generate_excel
 from src.github_uploader import commit_excel_via_git
 from src.job_matcher import match_all_jobs
@@ -56,22 +56,24 @@ async def safe_scrape(scraper, job_titles: list[str], cities: dict) -> list[dict
 # ---------------------------------------------------------------------------
 async def main() -> None:
     # 1. Validate prerequisites
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        logger.error("ANTHROPIC_API_KEY environment variable is not set.")
+        logger.error("GOOGLE_API_KEY environment variable is not set.")
         sys.exit(1)
 
     if not Path(CV_PATH).exists():
         logger.error("CV not found at '%s'. Please place your resume PDF there.", CV_PATH)
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    # Configure Gemini
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(GEMINI_MODEL)
 
     # 2. Parse CV
     logger.info("=== Step 1: Parsing CV ===")
     try:
         cv_text = extract_text_from_pdf(CV_PATH)
-        cv_profile = parse_cv_with_claude(cv_text, client)
+        cv_profile = parse_cv_with_gemini(cv_text, model)
         logger.info("Candidate: %s | Roles: %s", cv_profile.get("name"), cv_profile.get("target_roles"))
     except (CVParseError, FileNotFoundError) as exc:
         logger.error("CV parsing failed: %s", exc)
@@ -106,9 +108,9 @@ async def main() -> None:
         logger.warning("No jobs scraped from any portal. Exiting cleanly.")
         sys.exit(0)
 
-    # 4. Score and filter jobs with Claude
-    logger.info("=== Step 3: Scoring jobs with Claude ===")
-    scored_jobs = match_all_jobs(cv_profile, all_jobs, client)
+    # 4. Score and filter jobs with Gemini
+    logger.info("=== Step 3: Scoring jobs with Gemini ===")
+    scored_jobs = match_all_jobs(cv_profile, all_jobs, model)
     logger.info("Matched jobs after scoring: %d", len(scored_jobs))
 
     if not scored_jobs:
