@@ -8,7 +8,6 @@ import time
 from urllib.parse import urlparse, urlunparse
 
 from google import genai
-from google.genai import types
 
 from config import GEMINI_MODEL, MIN_MATCH_SCORE
 
@@ -53,7 +52,7 @@ def _score_batch(cv_profile: dict, batch: list[dict], client: genai.Client, batc
             f"  Description: {job.get('description_snippet', '')}\n"
         )
 
-    user_prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
+    prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
 
 You are a career coach scoring job matches for a candidate.
 
@@ -85,11 +84,7 @@ Return a JSON array with one object per job (in the same order):
         try:
             response = client.models.generate_content(
                 model=GEMINI_MODEL,
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=2048,
-                ),
+                contents=prompt,
             )
             raw = response.text.strip()
 

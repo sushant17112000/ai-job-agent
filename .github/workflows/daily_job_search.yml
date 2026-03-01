@@ -34,11 +34,6 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      - name: List available Gemini models (diagnostic)
-        run: python list_models.py
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-
       - name: Run job search agent
         run: python main.py
         env:

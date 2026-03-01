@@ -52,7 +52,7 @@ MIN_MATCH_SCORE = 60
 MAX_JOBS_PER_QUERY = 25
 
 # --- Gemini Model (free tier via Google AI Studio: 1,500 req/day) ---
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # --- Stealth Browser User Agents ---
 USER_AGENTS = [

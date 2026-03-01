@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pdfplumber
 from google import genai
-from google.genai import types  # noqa: F401 — used for type hints
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ def parse_cv_with_gemini(text: str, client: genai.Client) -> dict:
     """
     from config import GEMINI_MODEL
 
-    user_prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
+    prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
 
 Extract a structured professional profile from the following CV text.
 
@@ -78,11 +77,7 @@ CV TEXT:
         try:
             response = client.models.generate_content(
                 model=GEMINI_MODEL,
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=1024,
-                ),
+                contents=prompt,
             )
             raw = response.text.strip()
 

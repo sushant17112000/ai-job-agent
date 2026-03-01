@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from google import genai
-from google.genai import types
 
 from config import CITIES, CV_PATH, REPORTS_DIR
 from src.cv_parser import CVParseError, extract_text_from_pdf, parse_cv_with_gemini
@@ -66,11 +65,7 @@ async def main() -> None:
         logger.error("CV not found at '%s'. Please place your resume PDF there.", CV_PATH)
         sys.exit(1)
 
-    # Use v1 (stable) endpoint — gemini-1.5-flash is not available on v1beta
-    client = genai.Client(
-        api_key=api_key,
-        http_options=types.HttpOptions(api_version="v1"),
-    )
+    client = genai.Client(api_key=api_key)
 
     # 2. Parse CV
     logger.info("=== Step 1: Parsing CV ===")
