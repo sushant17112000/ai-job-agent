@@ -58,9 +58,9 @@ def parse_cv_with_gemini(text: str, client: genai.Client) -> dict:
     """
     from config import GEMINI_MODEL
 
-    system_prompt = "Return ONLY valid JSON, no explanation, no markdown code fences."
+    user_prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
 
-    user_prompt = f"""Extract a structured professional profile from the following CV text.
+Extract a structured professional profile from the following CV text.
 
 Return a JSON object with exactly these keys:
 - "name": full name of the candidate (string)
@@ -80,7 +80,6 @@ CV TEXT:
                 model=GEMINI_MODEL,
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
                     temperature=0.1,
                     max_output_tokens=1024,
                 ),

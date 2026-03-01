@@ -53,9 +53,9 @@ def _score_batch(cv_profile: dict, batch: list[dict], client: genai.Client, batc
             f"  Description: {job.get('description_snippet', '')}\n"
         )
 
-    system_prompt = "Return ONLY valid JSON, no explanation, no markdown code fences."
+    user_prompt = f"""Return ONLY valid JSON, no explanation, no markdown code fences.
 
-    user_prompt = f"""You are a career coach scoring job matches for a candidate.
+You are a career coach scoring job matches for a candidate.
 
 CANDIDATE PROFILE:
 - Name: {cv_profile.get('name', '')}
@@ -87,7 +87,6 @@ Return a JSON array with one object per job (in the same order):
                 model=GEMINI_MODEL,
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
                     temperature=0.1,
                     max_output_tokens=2048,
                 ),
