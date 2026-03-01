@@ -1,5 +1,5 @@
 """
-Job Matcher — scores job listings against the candidate CV profile using Groq (Llama).
+Job Matcher — scores job listings against the candidate CV profile using Gemini.
 """
 
 import json
@@ -7,7 +7,10 @@ import logging
 import time
 from urllib.parse import urlparse, urlunparse
 
-from config import GROQ_MODEL, MIN_MATCH_SCORE
+from google import genai
+from google.genai import types
+
+from config import GEMINI_MODEL, MIN_MATCH_SCORE
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +37,9 @@ def _deduplicate(jobs: list[dict]) -> list[dict]:
     return unique
 
 
-def _score_batch(cv_profile: dict, batch: list[dict], client, batch_num: int) -> list[dict]:
+def _score_batch(cv_profile: dict, batch: list[dict], client: genai.Client, batch_num: int) -> list[dict]:
     """
-    Send a batch of jobs to Groq for scoring.
+    Send a batch of jobs to Gemini for scoring.
 
     Returns list of dicts: [{job_index, match_score, match_reason}, ...]
     """
@@ -80,16 +83,16 @@ Return a JSON array with one object per job (in the same order):
     max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=2048,
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.1,
+                    max_output_tokens=2048,
+                ),
             )
-            raw = response.choices[0].message.content.strip()
+            raw = response.text.strip()
 
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
@@ -116,7 +119,7 @@ Return a JSON array with one object per job (in the same order):
     return []
 
 
-def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]:
+def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client: genai.Client) -> list[dict]:
     """
     Deduplicate, score, filter, and rank all scraped jobs.
 
@@ -129,7 +132,6 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]
 
     unique_jobs = _deduplicate(all_jobs)
 
-    # Batch into groups of 10 (sequential to stay within free-tier rate limits)
     batch_size = 10
     batches = [unique_jobs[i : i + batch_size] for i in range(0, len(unique_jobs), batch_size)]
 
@@ -144,9 +146,8 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]
                 job["match_reason"] = score_entry.get("match_reason", "")
                 scored_jobs.append(job)
         if batch_num < len(batches):
-            time.sleep(1)
+            time.sleep(2)
 
-    # Filter by minimum score
     filtered = [j for j in scored_jobs if j.get("match_score", 0) >= MIN_MATCH_SCORE]
     logger.info(
         "Scoring complete: %d total → %d above threshold (%d)",
@@ -155,7 +156,6 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]
         MIN_MATCH_SCORE,
     )
 
-    # Sort descending by score, assign rank
     filtered.sort(key=lambda j: j["match_score"], reverse=True)
     for rank, job in enumerate(filtered, start=1):
         job["rank"] = rank

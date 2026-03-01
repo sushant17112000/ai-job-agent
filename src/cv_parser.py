@@ -1,5 +1,5 @@
 """
-CV Parser — extracts text from PDF and uses Groq (Llama) to produce a structured profile.
+CV Parser — extracts text from PDF and uses Gemini to produce a structured profile.
 """
 
 import json
@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 
 import pdfplumber
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +39,9 @@ def extract_text_from_pdf(path: str) -> str:
     return full_text
 
 
-def parse_cv_with_groq(text: str, client) -> dict:
+def parse_cv_with_gemini(text: str, client: genai.Client) -> dict:
     """
-    Send CV text to Groq (Llama) and return a structured profile dict.
+    Send CV text to Gemini and return a structured profile dict.
 
     Returns:
         {
@@ -52,9 +54,9 @@ def parse_cv_with_groq(text: str, client) -> dict:
         }
 
     Raises:
-        CVParseError: if Groq returns invalid JSON after 2 retries.
+        CVParseError: if Gemini returns invalid JSON after 2 retries.
     """
-    from config import GROQ_MODEL
+    from config import GEMINI_MODEL
 
     system_prompt = "Return ONLY valid JSON, no explanation, no markdown code fences."
 
@@ -74,16 +76,16 @@ CV TEXT:
     max_retries = 2
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=1024,
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.1,
+                    max_output_tokens=1024,
+                ),
             )
-            raw = response.choices[0].message.content.strip()
+            raw = response.text.strip()
 
             # Strip accidental markdown fences
             if raw.startswith("```"):
@@ -97,12 +99,12 @@ CV TEXT:
 
         except json.JSONDecodeError as exc:
             logger.warning(
-                "Attempt %d/%d: Groq returned invalid JSON — %s", attempt, max_retries, exc
+                "Attempt %d/%d: Gemini returned invalid JSON — %s", attempt, max_retries, exc
             )
             if attempt < max_retries:
                 time.sleep(2**attempt)
         except Exception as exc:
-            logger.warning("Attempt %d/%d: Groq API error — %s", attempt, max_retries, exc)
+            logger.warning("Attempt %d/%d: Gemini API error — %s", attempt, max_retries, exc)
             if attempt < max_retries:
                 time.sleep(2**attempt)
 
