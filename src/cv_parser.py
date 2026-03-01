@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pdfplumber
 from google import genai
-from google.genai import types
+from google.genai import types  # noqa: F401 — used for type hints
 
 logger = logging.getLogger(__name__)
 
