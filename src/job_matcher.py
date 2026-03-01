@@ -1,5 +1,5 @@
 """
-Job Matcher — scores job listings against the candidate CV profile using Gemini.
+Job Matcher — scores job listings against the candidate CV profile using Groq (Llama).
 """
 
 import json
@@ -7,7 +7,7 @@ import logging
 import time
 from urllib.parse import urlparse, urlunparse
 
-from config import MIN_MATCH_SCORE
+from config import GROQ_MODEL, MIN_MATCH_SCORE
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,9 @@ def _deduplicate(jobs: list[dict]) -> list[dict]:
     return unique
 
 
-def _score_batch(cv_profile: dict, batch: list[dict], model, batch_num: int) -> list[dict]:
+def _score_batch(cv_profile: dict, batch: list[dict], client, batch_num: int) -> list[dict]:
     """
-    Send a batch of jobs to Gemini for scoring.
+    Send a batch of jobs to Groq for scoring.
 
     Returns list of dicts: [{job_index, match_score, match_reason}, ...]
     """
@@ -50,7 +50,9 @@ def _score_batch(cv_profile: dict, batch: list[dict], model, batch_num: int) -> 
             f"  Description: {job.get('description_snippet', '')}\n"
         )
 
-    prompt = f"""You are a career coach scoring job matches for a candidate.
+    system_prompt = "Return ONLY valid JSON, no explanation, no markdown code fences."
+
+    user_prompt = f"""You are a career coach scoring job matches for a candidate.
 
 CANDIDATE PROFILE:
 - Name: {cv_profile.get('name', '')}
@@ -69,7 +71,6 @@ SCORING RUBRIC:
 JOBS TO SCORE:
 {jobs_text}
 
-Return ONLY valid JSON, no explanation, no markdown code fences.
 Return a JSON array with one object per job (in the same order):
 [
   {{"job_index": 0, "match_score": <0-100>, "match_reason": "<1-2 sentence reason>"}},
@@ -79,8 +80,16 @@ Return a JSON array with one object per job (in the same order):
     max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            response = model.generate_content(prompt)
-            raw = response.text.strip()
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=2048,
+            )
+            raw = response.choices[0].message.content.strip()
 
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
@@ -107,7 +116,7 @@ Return a JSON array with one object per job (in the same order):
     return []
 
 
-def match_all_jobs(cv_profile: dict, all_jobs: list[dict], model) -> list[dict]:
+def match_all_jobs(cv_profile: dict, all_jobs: list[dict], client) -> list[dict]:
     """
     Deduplicate, score, filter, and rank all scraped jobs.
 
@@ -120,13 +129,13 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], model) -> list[dict]:
 
     unique_jobs = _deduplicate(all_jobs)
 
-    # Batch into groups of 10 (sequential to avoid rate limits)
+    # Batch into groups of 10 (sequential to stay within free-tier rate limits)
     batch_size = 10
     batches = [unique_jobs[i : i + batch_size] for i in range(0, len(unique_jobs), batch_size)]
 
     scored_jobs = []
     for batch_num, batch in enumerate(batches, start=1):
-        scores = _score_batch(cv_profile, batch, model, batch_num)
+        scores = _score_batch(cv_profile, batch, client, batch_num)
         for score_entry in scores:
             idx = score_entry.get("job_index", -1)
             if 0 <= idx < len(batch):
@@ -134,9 +143,8 @@ def match_all_jobs(cv_profile: dict, all_jobs: list[dict], model) -> list[dict]:
                 job["match_score"] = score_entry.get("match_score", 0)
                 job["match_reason"] = score_entry.get("match_reason", "")
                 scored_jobs.append(job)
-        # Brief pause between batches to stay within free-tier rate limits
         if batch_num < len(batches):
-            time.sleep(2)
+            time.sleep(1)
 
     # Filter by minimum score
     filtered = [j for j in scored_jobs if j.get("match_score", 0) >= MIN_MATCH_SCORE]
