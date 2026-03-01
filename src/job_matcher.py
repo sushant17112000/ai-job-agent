@@ -84,7 +84,13 @@ CANDIDATE PROFILE:
 - Education: {cv_profile.get('education', '')}
 - Preferred Locations: {', '.join(cv_profile.get('preferred_locations', []))}
 
-SCORING RUBRIC:
+HARD RULES (apply before scoring — these override everything else):
+- The candidate has {cv_profile.get('experience_years', 0)} years of experience.
+- If a job requires more than {cv_profile.get('experience_years', 0) + 2} years of experience, assign score 0.
+- Senior/Lead/Head/Director/VP/CTO/CXO roles that typically require 8+ years must score 0.
+- Only shortlist roles a candidate with {cv_profile.get('experience_years', 0)} years can realistically apply for.
+
+SCORING RUBRIC (applied only after hard rules pass):
 - 80-100: Excellent match (role, skills, location all align)
 - 60-79: Good match (most criteria met)
 - 40-59: Partial match (some overlap)
