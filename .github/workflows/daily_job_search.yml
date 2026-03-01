@@ -35,16 +35,7 @@ jobs:
         run: mkdir -p reports
 
       - name: List available Gemini models (diagnostic)
-        run: |
-          python -c "
-import os
-from google import genai
-from google.genai import types
-client = genai.Client(api_key=os.environ['GOOGLE_API_KEY'], http_options=types.HttpOptions(api_version='v1beta'))
-print('=== Available models (v1beta) ===')
-for m in client.models.list():
-    print(m.name)
-"
+        run: python list_models.py
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
