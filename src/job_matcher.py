@@ -7,7 +7,7 @@ import logging
 import time
 from urllib.parse import urlparse, urlunparse
 
-from config import GROQ_MODEL, MIN_MATCH_SCORE
+from config import GROQ_MODEL, MAX_REPORT_JOBS, MIN_MATCH_SCORE
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,9 @@ def match_all_jobs(cv_profile: dict, all_jobs: list, client) -> list:
     )
 
     filtered.sort(key=lambda j: j["match_score"], reverse=True)
-    for rank, job in enumerate(filtered, start=1):
+    top = filtered[:MAX_REPORT_JOBS]
+    for rank, job in enumerate(top, start=1):
         job["rank"] = rank
 
-    return filtered
+    logger.info("Final report: top %d jobs (capped at %d)", len(top), MAX_REPORT_JOBS)
+    return top

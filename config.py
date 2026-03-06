@@ -73,6 +73,7 @@ IIMJOBS_CITY_NAMES = {
 # --- Matching Settings ---
 MIN_MATCH_SCORE = 60
 MAX_JOBS_PER_QUERY = 25
+MAX_REPORT_JOBS = 50       # Top N jobs to include in the final Excel report
 
 # --- LLM: Groq (free tier, no credit card required) ---
 # Get your free API key at https://console.groq.com
