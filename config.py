@@ -2,8 +2,21 @@
 Configuration constants for the AI Job Search Agent.
 """
 
+# --- Target Search Roles ---
+# Domains: Product Management, Strategy Consulting, Digital Transformation, Customer Experience
+SEARCH_ROLES = [
+    "Product Manager",
+    "Strategy Consultant",
+    "Management Consultant",
+    "Digital Transformation Manager",
+    "Customer Experience Manager",
+    "Business Analyst",
+    "Product Strategy Manager",
+    "Digital Strategy Consultant",
+]
+
 # --- Cities & Portal-Specific Location Slugs ---
-# Order: Singapore, Bengaluru, Australia, New Delhi, Hyderabad
+# Order: Singapore, Bengaluru, Mumbai, Hyderabad, Australia
 # None means the portal does not support that city via URL filter.
 CITIES = {
     "singapore": {
@@ -11,30 +24,40 @@ CITIES = {
         "naukri": None,
         "iimjobs": None,  # post-filter by city name
         "jobstreet": "singapore",
+        "ncs": None,       # NCS is India-only
+        "timesjobs": None, # TimesJobs is India-only
     },
     "bengaluru": {
         "linkedin": "Bengaluru, India",
         "naukri": "bengaluru",
         "iimjobs": None,  # post-filter by city name
         "jobstreet": None,
+        "ncs": "Bengaluru",
+        "timesjobs": "Bengaluru",
     },
-    "australia": {
-        "linkedin": "Australia",
-        "naukri": None,
-        "iimjobs": None,
-        "jobstreet": None,
-    },
-    "new_delhi": {
-        "linkedin": "New Delhi, India",
-        "naukri": "new-delhi",
+    "mumbai": {
+        "linkedin": "Mumbai, India",
+        "naukri": "mumbai",
         "iimjobs": None,  # post-filter by city name
         "jobstreet": None,
+        "ncs": "Mumbai",
+        "timesjobs": "Mumbai",
     },
     "hyderabad": {
         "linkedin": "Hyderabad, India",
         "naukri": "hyderabad",
         "iimjobs": None,  # post-filter by city name
         "jobstreet": None,
+        "ncs": "Hyderabad",
+        "timesjobs": "Hyderabad",
+    },
+    "australia": {
+        "linkedin": "Australia",
+        "naukri": None,
+        "iimjobs": None,
+        "jobstreet": None,
+        "ncs": None,
+        "timesjobs": None,
     },
 }
 
@@ -42,9 +65,9 @@ CITIES = {
 IIMJOBS_CITY_NAMES = {
     "singapore": "singapore",
     "bengaluru": "bengaluru",
-    "australia": "australia",
-    "new_delhi": "delhi",
+    "mumbai": "mumbai",
     "hyderabad": "hyderabad",
+    "australia": "australia",
 }
 
 # --- Matching Settings ---

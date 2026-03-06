@@ -15,7 +15,7 @@ load_dotenv()
 
 from groq import Groq
 
-from config import CITIES, CV_PATH, REPORTS_DIR
+from config import CITIES, CV_PATH, REPORTS_DIR, SEARCH_ROLES
 from src.cv_parser import CVParseError, extract_text_from_pdf, parse_cv_with_groq
 from src.excel_generator import generate_excel
 from src.github_uploader import commit_excel_via_git
@@ -24,6 +24,10 @@ from src.scrapers.iimjobs_scraper import IIMJobsScraper
 from src.scrapers.jobstreet_scraper import JobstreetScraper
 from src.scrapers.linkedin_scraper import LinkedInScraper
 from src.scrapers.naukri_scraper import NaukriScraper
+from src.scrapers.ncs_scraper import NCSScraper
+from src.scrapers.timesjobs_scraper import TimesJobsScraper
+from src.scrapers.adzuna_scraper import AdzunaScraper
+from src.scrapers.jsearch_scraper import JSearchScraper
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,14 +73,21 @@ async def main() -> None:
         logger.error("CV parsing failed: %s", exc)
         sys.exit(1)
 
-    job_titles = cv_profile.get("target_roles", [])
-    if not job_titles or not isinstance(job_titles, list):
-        logger.warning("No target roles found in CV — defaulting to 'Software Engineer'.")
-        job_titles = ["Software Engineer"]
+    job_titles = SEARCH_ROLES
+    logger.info("Searching for roles: %s", job_titles)
 
-    # 3. Run all 4 scrapers concurrently
+    # 3. Run all scrapers concurrently
     logger.info("=== Step 2: Scraping job portals ===")
-    scrapers = [LinkedInScraper(), NaukriScraper(), IIMJobsScraper(), JobstreetScraper()]
+    scrapers = [
+        LinkedInScraper(),
+        NaukriScraper(),
+        IIMJobsScraper(),
+        JobstreetScraper(),
+        NCSScraper(),        # GOI National Career Service Portal
+        TimesJobsScraper(),  # Times Internet — major Indian job board
+        AdzunaScraper(),     # Adzuna API — free 200 req/day, India (replaces Naukri on CI)
+        JSearchScraper(),    # JSearch RapidAPI — aggregates Naukri + IIMJobs + Indeed (replaces IIMJobs on CI)
+    ]
 
     results = await asyncio.gather(*[safe_scrape(s, job_titles, CITIES) for s in scrapers])
 

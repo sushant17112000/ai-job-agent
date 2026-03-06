@@ -37,8 +37,11 @@ jobs:
       - name: Run job search agent
         run: python main.py
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GITHUB_ACTIONS: "true"
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          ADZUNA_APP_ID:   ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY:  ${{ secrets.ADZUNA_APP_KEY }}
+          JSEARCH_API_KEY: ${{ secrets.JSEARCH_API_KEY }}
+          GITHUB_ACTIONS:  "true"
 
       - name: Commit and push Excel report
         run: |
