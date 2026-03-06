@@ -83,7 +83,7 @@ Return a JSON object with exactly these keys:
 CV TEXT:
 {text}"""
 
-    max_retries = 2
+    max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
             response = client.chat.completions.create(
@@ -115,12 +115,16 @@ CV TEXT:
 
         except json.JSONDecodeError as exc:
             logger.warning(
-                "Attempt %d/%d: Groq returned invalid JSON — %s", attempt, max_retries, exc
+                "Attempt %d/%d: Groq returned invalid JSON — %s\nRaw response: %r",
+                attempt, max_retries, exc, raw if "raw" in dir() else "N/A",
             )
             if attempt < max_retries:
                 time.sleep(2**attempt)
         except Exception as exc:
-            logger.warning("Attempt %d/%d: Groq API error — %s", attempt, max_retries, exc)
+            logger.warning(
+                "Attempt %d/%d: Groq API error — %s: %s",
+                attempt, max_retries, type(exc).__name__, exc,
+            )
             if attempt < max_retries:
                 time.sleep(2**attempt)
 
