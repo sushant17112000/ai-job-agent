@@ -28,7 +28,10 @@ def _deduplicate(jobs: list) -> list:
     unique = []
     for job in jobs:
         key = _normalize_url(job.get("url", ""))
-        if key and key not in seen:
+        if not key:
+            # No URL — include unconditionally (can't deduplicate without a key)
+            unique.append(job)
+        elif key not in seen:
             seen.add(key)
             unique.append(job)
     logger.info("Deduplication: %d → %d jobs", len(jobs), len(unique))
