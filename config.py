@@ -74,7 +74,7 @@ IIMJOBS_CITY_NAMES = {
 MIN_MATCH_SCORE = 60
 MAX_JOBS_PER_QUERY = 25
 MAX_REPORT_JOBS = 100      # Top N jobs to include in the final Excel report
-MAX_JOBS_PER_ROLE = 15     # Max jobs per search role before global ranking (ensures role diversity)
+MAX_JOBS_PER_ROLE = 25     # Max jobs per search role before global ranking (ensures role diversity)
 
 # --- LLM: Groq (free tier, no credit card required) ---
 # Get your free API key at https://console.groq.com

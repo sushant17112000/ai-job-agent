@@ -60,7 +60,7 @@ class JSearchScraper(BaseScraper):
             "query":       query,
             "page":        "1",
             "num_pages":   "1",
-            "date_posted": "3days",
+            "date_posted": "week",
         })
         url = f"{_ENDPOINT}?{params}"
 
