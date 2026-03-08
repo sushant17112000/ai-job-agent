@@ -78,7 +78,7 @@ MAX_JOBS_PER_ROLE = 25     # Max jobs per search role before global ranking (ens
 
 # --- LLM: Groq (free tier, no credit card required) ---
 # Get your free API key at https://console.groq.com
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 # --- Stealth Browser User Agents ---
 USER_AGENTS = [
