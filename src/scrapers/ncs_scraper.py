@@ -111,7 +111,7 @@ class NCSScraper(BaseScraper):
                             title=title,
                             company=company or "Government / PSU",
                             location=location,
-                            url=link or url,
+                            url=link,  # empty string if no job link found — avoids dedup collapse on search URL
                             description_snippet="",
                             date_posted="",
                             portal=self.portal_name,

@@ -57,7 +57,7 @@ class AdzunaScraper(BaseScraper):
             "what":            title,
             "where":           city,
             "results_per_page": MAX_JOBS_PER_QUERY,
-            "max_days_old":    1,
+            "max_days_old":    7,
             "content-type":    "application/json",
         })
         url = f"{_BASE}?{params}"

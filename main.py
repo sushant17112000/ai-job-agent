@@ -18,7 +18,6 @@ from groq import Groq
 from config import CITIES, CV_PATH, REPORTS_DIR, SEARCH_ROLES
 from src.cv_parser import CVParseError, extract_text_from_pdf, parse_cv_with_groq
 from src.excel_generator import generate_excel
-from src.github_uploader import commit_excel_via_git
 from src.job_matcher import match_all_jobs
 from src.scrapers.iimjobs_scraper import IIMJobsScraper
 from src.scrapers.jobstreet_scraper import JobstreetScraper
@@ -121,14 +120,7 @@ async def main() -> None:
     )
     logger.info("Report saved: %s", report_path)
 
-    # 6. Commit (GitHub Actions only)
-    if os.environ.get("GITHUB_ACTIONS") == "true":
-        logger.info("=== Step 5: Committing report ===")
-        commit_excel_via_git(
-            file_path=report_path,
-            commit_message=f"Daily job report: {date.today().isoformat()}",
-        )
-
+    # Step 5 (commit + push) is handled entirely by the GitHub Actions workflow YAML step.
     logger.info("=== Done! ===")
 
 
