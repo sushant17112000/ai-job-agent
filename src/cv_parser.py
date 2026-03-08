@@ -116,7 +116,7 @@ CV TEXT:
         except json.JSONDecodeError as exc:
             logger.warning(
                 "Attempt %d/%d: Groq returned invalid JSON — %s\nRaw response: %r",
-                attempt, max_retries, exc, raw if "raw" in dir() else "N/A",
+                attempt, max_retries, exc, raw if "raw" in locals() else "N/A",
             )
             if attempt < max_retries:
                 time.sleep(2**attempt)
