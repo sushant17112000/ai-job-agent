@@ -47,12 +47,13 @@ jobs:
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git fetch origin main
-          git reset --soft origin/main
           git add reports/
           if git diff --staged --quiet; then
             echo "No new report to commit."
           else
+            git fetch origin main
+            git reset --soft origin/main
+            git add reports/
             git commit -m "Daily job report: $(date +%Y-%m-%d)"
-            git push
+            git push --force-with-lease
           fi
