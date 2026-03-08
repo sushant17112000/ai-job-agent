@@ -7,7 +7,8 @@ import logging
 import time
 from urllib.parse import urlparse, urlunparse
 
-from config import GROQ_MODEL, MAX_REPORT_JOBS, MIN_MATCH_SCORE
+from config import GROQ_MODEL, MAX_JOBS_PER_ROLE, MAX_REPORT_JOBS, MIN_MATCH_SCORE
+from config import SEARCH_ROLES
 
 logger = logging.getLogger(__name__)
 
@@ -177,9 +178,31 @@ def match_all_jobs(cv_profile: dict, all_jobs: list, client) -> list:
     )
 
     filtered.sort(key=lambda j: j["match_score"], reverse=True)
-    top = filtered[:MAX_REPORT_JOBS]
+
+    # --- Role diversity: cap each role at MAX_JOBS_PER_ROLE before global top-N ---
+    # This prevents one role (e.g. Product Manager) from monopolising the report.
+    role_counts: dict[str, int] = {}
+    diverse: list[dict] = []
+    for job in filtered:
+        job_title_lower = job.get("title", "").lower()
+        # Match against the configured search roles (case-insensitive substring)
+        matched_role = next(
+            (r for r in SEARCH_ROLES if r.lower() in job_title_lower),
+            job.get("title", "Other"),  # ungrouped titles get their own bucket
+        )
+        count = role_counts.get(matched_role, 0)
+        if count < MAX_JOBS_PER_ROLE:
+            diverse.append(job)
+            role_counts[matched_role] = count + 1
+
+    # Re-sort after diversity filter (order may have been disrupted by per-role caps)
+    diverse.sort(key=lambda j: j["match_score"], reverse=True)
+    top = diverse[:MAX_REPORT_JOBS]
     for rank, job in enumerate(top, start=1):
         job["rank"] = rank
 
-    logger.info("Final report: top %d jobs (capped at %d)", len(top), MAX_REPORT_JOBS)
+    logger.info(
+        "Final report: %d jobs across %d roles (capped at %d)",
+        len(top), len(role_counts), MAX_REPORT_JOBS,
+    )
     return top
